@@ -331,7 +331,7 @@ DefineEngineStringlyVariadicMethod(GameConnection, setConnectArgs, void, 3, 17,
    
    "@see GameConnection::onConnect()\n\n")
 {
-   StringStackWrapper args(argc - 2, argv + 2);
+   ConsoleValueToStringArrayWrapper args(argc - 2, argv + 2);
    object->setConnectArgs(args.count(), args);
 }
 
@@ -374,7 +374,7 @@ void GameConnection::onConnectionEstablished(bool isInitiator)
 
       const char *argv[MaxConnectArgs + 2];
       argv[0] = "onConnect";
-      argv[1] = NULL; // Filled in later
+      argv[1] = getIdString();
       for(U32 i = 0; i < mConnectArgc; i++)
          argv[i + 2] = mConnectArgv[i];
       // NOTE: Need to fallback to Con::execute() as IMPLEMENT_CALLBACK does not 
@@ -494,27 +494,23 @@ bool GameConnection::readConnectRequest(BitStream *stream, const char **errorStr
       *errorString = "CR_INVALID_ARGS";
       return false;
    }
-   ConsoleValueRef connectArgv[MaxConnectArgs + 3];
-   ConsoleValue connectArgvValue[MaxConnectArgs + 3];
 
-   for(U32 i = 0; i < mConnectArgc+3; i++)
-   {
-      connectArgv[i].value = &connectArgvValue[i];
-      connectArgvValue[i].init();
-   }
+   char buffer[256];
+   Net::addressToString(getNetAddress(), buffer);
+
+   ConsoleValue connectArgv[MaxConnectArgs + 3];
 
    for(U32 i = 0; i < mConnectArgc; i++)
    {
       char argString[256];
       stream->readString(argString);
       mConnectArgv[i] = dStrdup(argString);
-      connectArgv[i + 3] = mConnectArgv[i];
+      connectArgv[i + 3].setString(argString);
    }
-   connectArgvValue[0].setStackStringValue("onConnectRequest");
-   connectArgvValue[1].setIntValue(0);
-   char buffer[256];
-   Net::addressToString(getNetAddress(), buffer);
-   connectArgvValue[2].setStackStringValue(buffer);
+
+   connectArgv[0].setStringTableEntry("onConnectRequest");
+   connectArgv[1].setInt(0);
+   connectArgv[2].setString(buffer);
 
    // NOTE: Cannot convert over to IMPLEMENT_CALLBACK as it has variable args.
    const char *ret = Con::execute(this, mConnectArgc + 3, connectArgv);
@@ -1088,7 +1084,7 @@ bool GameConnection::readDemoStartBlock(BitStream *stream)
 void GameConnection::demoPlaybackComplete()
 {
    static const char* demoPlaybackArgv[1] = { "demoPlaybackComplete" };
-   static StringStackConsoleWrapper demoPlaybackCmd(1, demoPlaybackArgv);
+   static StringArrayToConsoleValueWrapper demoPlaybackCmd(1, demoPlaybackArgv);
 
    Sim::postCurrentEvent(Sim::getRootGroup(), new SimConsoleEvent(demoPlaybackCmd.argc, demoPlaybackCmd.argv, false));
    Parent::demoPlaybackComplete();
